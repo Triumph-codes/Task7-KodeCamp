@@ -7,33 +7,27 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from colorama import Fore, Style, init 
 
-from app.database import create_db_and_tables
+from app.database import create_db_and_tables, get_session
 from app.routers import students
 from app.security import create_initial_admin_user
+from sqlmodel import Session
 
 init(autoreset=True)
-# This is our custom logging file
 LOG_FILE = "request_log.json"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Handles startup and shutdown events.
-    - Creates the database and tables.
-    - Creates the initial admin user.
-    """
     print(f"{Fore.MAGENTA}INFO: Creating database and tables...{Style.RESET_ALL}")
     create_db_and_tables()
-    print(f"{Fore.MAGENTA}INFO: Ensuring initial admin user exists...{Style.RESET_ALL}")
-    create_initial_admin_user()
+    with next(get_session()) as session:
+        print(f"{Fore.MAGENTA}INFO: Ensuring initial admin user exists...{Style.RESET_ALL}")
+        create_initial_admin_user(session)
     yield
     print(f"{Fore.MAGENTA}INFO: Application shutdown complete.{Style.RESET_ALL}")
 
 app = FastAPI(lifespan=lifespan)
 
 # --- Middleware ---
-
-# CORS Middleware
 origins = ["http://localhost:3000"]
 
 app.add_middleware(
@@ -47,9 +41,6 @@ app.add_middleware(
 # Logging Middleware
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    """
-    Middleware to log every request's details into a JSON file.
-    """
     start_time = time.time()
     response = await call_next(request)
     process_time = time.time() - start_time
