@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from colorama import Fore, Style, init
 from sqlmodel import Session
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import create_db_and_tables, get_session
 from app.routers import products, users
@@ -27,6 +28,21 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# CORS Middleware
+origins = [
+    "http://localhost",
+    "http://localhost:3000",
+    "null"
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Timing Middleware
 app.add_middleware(TimingMiddleware)
 
 # Include both routers
