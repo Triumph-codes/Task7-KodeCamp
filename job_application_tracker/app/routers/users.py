@@ -23,7 +23,7 @@ def register_user(user_in: UserCreate, session: Session = Depends(get_session)):
         raise HTTPException(status_code=409, detail="Username already registered")
 
     hashed_password = hash_password(user_in.password)
-    user = User(username=user_in.username, hashed_password=hashed_password)
+    user = User(username=user_in.username, hashed_password=hashed_password, role=user_in.role)
     session.add(user)
     session.commit()
     session.refresh(user)
