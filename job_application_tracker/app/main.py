@@ -2,6 +2,7 @@
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware # Import CORS middleware
 from colorama import Fore, Style, init
 from sqlmodel import Session, select
 
@@ -43,6 +44,20 @@ app = FastAPI(
     description="An API to track job applications for authenticated users.",
     version="0.1.0",
     lifespan=lifespan
+)
+
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:5500",
+]
+
+# Add CORS middleware to the application
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins, # List of origins that are allowed to make requests
+    allow_credentials=True, # Allow cookies and authorization headers
+    allow_methods=["*"], # Allow all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"], # Allow all headers, including Authorization
 )
 
 # Add custom middleware
