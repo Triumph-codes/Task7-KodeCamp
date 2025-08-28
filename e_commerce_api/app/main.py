@@ -1,18 +1,22 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from colorama import Fore, Style, init
+from sqlmodel import Session
 
-from app.database import create_db_and_tables
-from app.routers import products
+from app.database import create_db_and_tables, get_session
+from app.routers import products, users
 from app.middleware.timing import TimingMiddleware
+from app.security import create_initial_admin_user
 
 init(autoreset=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initializes database and tables on startup."""
     print(f"{Fore.MAGENTA}INFO: Creating database and tables...{Style.RESET_ALL}")
     create_db_and_tables()
+    with next(get_session()) as session:
+        print(f"{Fore.MAGENTA}INFO: Ensuring initial admin user exists...{Style.RESET_ALL}")
+        create_initial_admin_user(session)
     yield
     print(f"{Fore.MAGENTA}INFO: Application shutdown complete.{Style.RESET_ALL}")
 
@@ -23,11 +27,11 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add custom middleware
 app.add_middleware(TimingMiddleware)
 
-# Include routers
+# Include both routers
 app.include_router(products.router)
+app.include_router(users.router)
 
 @app.get("/")
 def read_root():
