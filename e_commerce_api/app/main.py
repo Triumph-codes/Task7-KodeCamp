@@ -5,7 +5,7 @@ from sqlmodel import Session
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import create_db_and_tables, get_session
-from app.routers import products, users
+from app.routers import products, users, cart
 from app.middleware.timing import TimingMiddleware
 from app.security import create_initial_admin_user
 
@@ -48,6 +48,7 @@ app.add_middleware(TimingMiddleware)
 # Include both routers
 app.include_router(products.router)
 app.include_router(users.router)
+app.include_router(cart.router)
 
 @app.get("/")
 def read_root():
