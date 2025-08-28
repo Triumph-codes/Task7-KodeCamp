@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 from typing import List
 
 from app.database import get_session
-from app.models import User, Product, Cart, CartItem, CartItemCreate, CartUpdate
+from app.models import User, Product, Cart, CartItem, CartItemCreate, CartUpdate, Order, OrderItem
 from app.security import get_current_user
 
 router = APIRouter(prefix="/cart", tags=["cart"])
@@ -35,7 +35,6 @@ def add_item_to_cart(
 
     cart = get_or_create_cart(current_user.id, session)
 
-    # Check if item is already in cart
     existing_item = session.exec(
         select(CartItem).where(
             CartItem.cart_id == cart.id, CartItem.product_id == item_in.product_id
@@ -116,3 +115,81 @@ def update_item_in_cart(
     session.commit()
     session.refresh(cart_item)
     return cart_item
+
+@router.post("/checkout", status_code=status.HTTP_201_CREATED)
+def checkout(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Processes the checkout for the current user's active cart.
+    This creates an order, updates product stock, and clears the cart.
+    """
+    cart = session.exec(
+        select(Cart).where(Cart.user_id == current_user.id, Cart.is_active == True)
+    ).first()
+
+    if not cart or not cart.items:
+        raise HTTPException(status_code=400, detail="Your cart is empty.")
+
+    # Validate stock for all items in the cart
+    cart_items = session.exec(
+        select(CartItem).where(CartItem.cart_id == cart.id)
+    ).all()
+
+    total_price = 0
+    order_items = []
+    
+    for item in cart_items:
+        product = session.get(Product, item.product_id)
+        if product.stock < item.quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Not enough stock for {product.name}. Available: {product.stock}, Requested: {item.quantity}"
+            )
+        
+        # Calculate price for this item and add to total
+        total_price += product.price * item.quantity
+        
+        # Create a new order item for the final record
+        order_item = OrderItem(
+            product_id=product.id,
+            quantity=item.quantity,
+            price=product.price
+        )
+        order_items.append(order_item)
+
+    # All checks passed, proceed with the transaction
+    try:
+        # Create a new order
+        order = Order(user_id=current_user.id, total_price=total_price)
+        session.add(order)
+        session.commit()
+        session.refresh(order)
+
+        # Add all order items to the session and link to the new order
+        for item in order_items:
+            item.order_id = order.id
+            session.add(item)
+            
+        session.commit()
+        session.refresh(order)
+
+        # Update product stock and clear the cart
+        for item in cart_items:
+            product = session.get(Product, item.product_id)
+            product.stock -= item.quantity
+            session.add(product)
+            session.delete(item)
+            
+        session.delete(cart)
+        session.commit()
+
+        return {"message": "Checkout successful!", "order_id": order.id, "total_price": total_price}
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred during checkout: {e}"
+        )
