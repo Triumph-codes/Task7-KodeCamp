@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
-from colorama import Fore, Style, init 
+from colorama import Fore, Style, init
 
 from app.database import create_db_and_tables, get_session
 from app.routers import students
@@ -27,9 +27,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# --- Middleware ---
-origins = ["http://localhost:3000"]
-
+# --- CORS Middleware ---
+origins = [
+    "http://localhost",
+    "http://localhost:3000",
+]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -38,7 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Logging Middleware
+# --- Logging Middleware ---
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
