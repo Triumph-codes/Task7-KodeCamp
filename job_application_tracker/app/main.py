@@ -1,12 +1,14 @@
+# app/main.py
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from colorama import Fore, Style, init
+from sqlmodel import Session, select
 
 from app.database import create_db_and_tables, get_session
-from app.routers import users, applications
+from app.routers import users, listings # Changed from 'applications' to 'listings'
 from app.middleware.user_agent import UserAgentMiddleware
 from app.security import hash_password
-from sqlmodel import Session, select
 from app.models import User
 
 init(autoreset=True)
@@ -17,14 +19,22 @@ async def lifespan(app: FastAPI):
     print(f"{Fore.MAGENTA}INFO: Creating database and tables...{Style.RESET_ALL}")
     create_db_and_tables()
     with next(get_session()) as session:
-        print(f"{Fore.MAGENTA}INFO: Ensuring initial user exists...{Style.RESET_ALL}")
-        # Create a default user if one does not exist
-        if not session.exec(select(User).where(User.username == "testuser")).first():
-            hashed_password = hash_password("testpassword")
-            new_user = User(username="testuser", hashed_password=hashed_password)
-            session.add(new_user)
+        print(f"{Fore.MAGENTA}INFO: Ensuring initial users exist...{Style.RESET_ALL}")
+        # Create a default admin user
+        if not session.exec(select(User).where(User.username == "admin")).first():
+            hashed_password = hash_password("admin_password")
+            admin_user = User(username="admin", hashed_password=hashed_password, role="admin")
+            session.add(admin_user)
             session.commit()
-            print("Default user 'testuser' created with password 'testpassword'.")
+            print("Default admin user 'admin' created with password 'admin_password'.")
+
+        # Create a default regular user
+        if not session.exec(select(User).where(User.username == "testuser")).first():
+            hashed_password = hash_password("test_password")
+            regular_user = User(username="testuser", hashed_password=hashed_password, role="user")
+            session.add(regular_user)
+            session.commit()
+            print("Default user 'testuser' created with password 'test_password'.")
     yield
     print(f"{Fore.MAGENTA}INFO: Application shutdown complete.{Style.RESET_ALL}")
 
@@ -40,7 +50,7 @@ app.add_middleware(UserAgentMiddleware)
 
 # Include routers
 app.include_router(users.router)
-app.include_router(applications.router)
+app.include_router(listings.router) # Changed from 'applications' to 'listings'
 
 @app.get("/")
 def read_root():
