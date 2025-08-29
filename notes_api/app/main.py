@@ -5,7 +5,7 @@ from colorama import Fore, Style, init
 import os
 
 from app.database import create_db_and_tables, get_session
-from app.routers import notes
+from app.routers import notes, users
 
 
 # Initialize colorama
@@ -51,6 +51,8 @@ async def request_counter_middleware(request: Request, call_next):
 
 # Include routers
 app.include_router(notes.router)
+app.include_router(users.router)
+
 
 @app.get("/")
 def read_root():
